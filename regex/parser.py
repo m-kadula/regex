@@ -1,0 +1,3 @@
+
+def parse(regular_expression: str):
+    ...
