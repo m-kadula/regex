@@ -1,9 +1,0 @@
-
-from abc import ABC
-
-
-class SymbolInterface(ABC):
-
-    def repr(self) -> str:  ...
-    def symbol_set(self) -> str:  ...
-    def is_symbol(self, symbol: str) -> bool:  ...
