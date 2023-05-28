@@ -1,7 +1,7 @@
 """Regular expressions parser"""
 
 from abc import ABC
-from typing import NamedTuple, Iterator, Union, Any
+from typing import NamedTuple, Union, Any
 from enum import Enum, auto
 from json import dumps
 
@@ -19,13 +19,16 @@ class Part(NamedTuple):
 
 class Lexer:
 
-    tokens: tuple[str] = '[', ']', '(', ')', '+', '*', '.', '?', '{', '}', '|', '\\'
-    special: dict[str, str] = {'n': '\n', 't': '\t', '0': '\0', 'x': '\\x00'}
+    tokens: tuple[str] = '[', ']', '(', ')', '+', '*', '?', '{', '}', '|', '\\', '.'
+    special: dict[str, str] = {'n': '\n', 't': '\t', '0': '\0', 'x': '\x00'}
     substitute: tuple[str] = 's', 'S', 'd', 'D', 'a', 'A'
 
     def __init__(self, regular_expression: str):
         self.regex = regular_expression
-        self.parts = self._tokenize(regular_expression)
+        tokens = self._tokenize(regular_expression)
+        if not self._check_brackets(tokens):
+            raise Exception("Wrong brackets")
+        self.parts = tokens
 
     def __len__(self):
         return len(self.parts)
@@ -37,7 +40,7 @@ class Lexer:
         self._cur_index = 0
         return self
 
-    def __next__(self, __default=None) -> tuple[int, Part]:
+    def __next__(self) -> tuple[int, Part]:
         if self._cur_index >= len(self.parts):
             raise StopIteration
         self._cur_index += 1
@@ -47,6 +50,21 @@ class Lexer:
         if self._cur_index == 0:
             raise Exception  # TODO
         self._cur_index -= 1
+
+    @classmethod
+    def _check_brackets(cls, regex: tuple[Part]) -> bool:
+        stack = []
+        counterpart = {')': '(', ']': '['}
+        for part in regex:
+            if part.sym_type != PartType.TOKEN:
+                continue
+            if part.symbol in ['(', '[']:
+                stack.append(part.symbol)
+            elif part.symbol in [')', ']']:
+                if len(stack) == 0 or stack[-1] != counterpart[part.symbol]:
+                    return False
+                stack.pop()
+        return len(stack) == 0
 
     @classmethod
     def _handle_escape(cls, regex: str) -> (Part, int):
@@ -62,7 +80,10 @@ class Lexer:
 
     @classmethod
     def _handle_token(cls, regex: str) -> (Part, int):
-        return Part(regex[0], PartType.TOKEN), 1
+        if regex[0] == '.':
+            return Part(regex[0], PartType.SPECIAL), 1
+        else:
+            return Part(regex[0], PartType.TOKEN), 1
 
     @classmethod
     def _tokenize(cls, regular_expression: str) -> tuple[Part]:
@@ -70,7 +91,6 @@ class Lexer:
         out: list[Part] = []
         while i < len(regular_expression):
             current = regular_expression[i]
-            new: Part | None = None
 
             if current == '\\':
                 if i + 1 >= len(regular_expression):
@@ -100,6 +120,22 @@ class Lexer:
         return tuple([Part('(', PartType.TOKEN)] + out + [Part(')', PartType.TOKEN)])
 
 
+class OperatorType(Enum):
+    STAR = auto()
+    PLUS = auto()
+    EXACT = auto()
+
+
+class Operator:
+
+    def __init__(self, op_type: OperatorType, operator: Union[str, tuple[int, int]]):
+        self.op_type = op_type
+        self.operator = operator
+
+    def repr(self):
+        return self.operator
+
+
 class BaseNode(ABC):
 
     def repr(self) -> Any:  ...
@@ -112,10 +148,8 @@ class Symbol(BaseNode):
         self.operator = operator
 
     def repr(self):
-        if self.operator is not None:
-            return f'<Symbol: {repr(self.symbol)}, {self.operator.repr()}>'
-        else:
-            return f'<Symbol: {repr(self.symbol)}>'
+        op = self.operator.repr() if self.operator is not None else None
+        return {"type": "symbol", "operator": op, "value": self.symbol}
 
 
 class SpecialSymbol(BaseNode):
@@ -125,51 +159,36 @@ class SpecialSymbol(BaseNode):
         self.operator = operator
 
     def repr(self):
-        if self.operator is not None:
-            return f'<SpecialSymbol: {repr(self.symbol)}, {self.operator.repr()}>'
-        else:
-            return f'<SpecialSymbol: {repr(self.symbol)}>'
+        op = self.operator.repr() if self.operator is not None else None
+        return {"type": "special_symbol", "operator": op, "value": self.symbol}
 
 
-class Concatenation(BaseNode):
+class Alternative(BaseNode):
 
-    def __init__(self, contents: list[BaseNode]):
+    def __init__(self, contents: list[BaseNode], operator: Union[BaseNode, None]):
         self.contents = contents
+        self.operator = operator
 
     def repr(self):
         base = []
         for i in self.contents:
             base.append(i.repr())
-        return {"<Concatenation>": base}
+        op = self.operator.repr() if self.operator is not None else None
+        return {"type": "alternative", "operator": op, "contents": base}
 
 
-class OperatorType(Enum):
-    STAR = auto()
-    PLUS = auto()
-    EXACT = auto()
+class Concatenation(BaseNode):
 
-
-class Operator(BaseNode):
-
-    def __init__(self, op_type: OperatorType, operator: Union[str, tuple[int, int]]):
-        self.op_type = op_type
-        self.operator = operator
-
-    def repr(self):
-        return f"({repr(self.op_type)}, {repr(self.operator)})"
-
-
-class Alternative(BaseNode):
-
-    def __init__(self, operands: list[Concatenation], operator: Union[BaseNode, None]):
-        self.operands = operands
+    def __init__(self, contents: list[BaseNode], operator: Union[BaseNode, None]):
+        self.contents = contents
         self.operator = operator
 
     def repr(self):
         base = []
-        for i in self.operands:
+        for i in self.contents:
             base.append(i.repr())
-        return {f"<Alternative: {self.operator.repr() if self.operator is not None else 'None'}>": base}
+        op = self.operator.repr() if self.operator is not None else None
+        return {"type": "concatenation", "operator": op, "contents": base}
 
 
 class ParsingError(Exception):
@@ -184,19 +203,22 @@ class Parser:
     def __repr__(self):
         return dumps(self.root.repr(), indent=4)
 
+    def get_tree(self):
+        return self.root.repr()
+
     @classmethod
-    def _parse(cls, regex: Lexer) -> BaseNode:
-        iterator = iter(regex)
-        out = cls._parse_group(iterator)
+    def _parse(cls, lexer: Lexer) -> BaseNode:
+        iter(lexer)
+        out = cls._parse_group(lexer)
         try:
-            next(iterator)
+            next(lexer)
         except StopIteration:
             return out
         else:
             raise ParsingError  # TODO
 
     @classmethod
-    def _parse_operator(cls, iterator: Iterator[tuple[int, Part]]) -> Operator | None:
+    def _parse_operator(cls, iterator: Lexer) -> Operator | None:
         try:
             str_index, current = next(iterator)
         except StopIteration:
@@ -250,12 +272,52 @@ class Parser:
             raise Exception  # TODO
 
     @classmethod
-    def _parse_alter_set(cls, iterator: Iterator[tuple[int, Part]]) -> Alternative:  # TODO
-        ...
+    def _parse_alter_set(cls, iterator: Lexer) -> Alternative:
+        out = Alternative(contents=[], operator=None)
+        str_index, current = next(iterator)
+        assert current.sym_type == PartType.TOKEN and current.symbol == '['
+        while True:
+            str_index, current = next(iterator)
+
+            match current.sym_type:
+                case PartType.TOKEN:
+                    if current.symbol == ']':
+                        break
+                    else:
+                        raise ParsingError  # TODO
+
+                case PartType.NORMAL:
+                    if current.symbol == '-' and len(out.contents) > 0:
+                        previous = out.contents[-1]
+                        _, following = next(iterator)
+                        if following.sym_type != PartType.NORMAL or isinstance(previous, SpecialSymbol):
+                            raise ParsingError
+                        assert isinstance(previous, Symbol)
+
+                        first = ord(previous.symbol)
+                        second = ord(following.symbol)
+                        if first >= second:
+                            raise ParsingError
+                        for i in range(first + 1, second + 1):
+                            out.contents.append(Symbol(chr(i), None))
+
+                    else:
+                        out.contents.append(Symbol(current.symbol, None))
+
+                case PartType.SPECIAL:
+                    out.contents.append(SpecialSymbol(current.symbol, None))
+
+                case PartType.TOKEN:
+                    if current.symbol == ']':
+                        break
+                    else:
+                        raise ParsingError
+
+        return out
 
     @classmethod
-    def _parse_concatenation(cls, iterator: Iterator[tuple[int, Part]]) -> Concatenation:
-        out = Concatenation(contents=[])
+    def _parse_concatenation(cls, iterator: Lexer) -> Concatenation:
+        out = Concatenation(contents=[], operator=None)
         while True:
             str_index, current = next(iterator)
 
@@ -264,10 +326,17 @@ class Parser:
                     if current.symbol == '(':
                         iterator.rollback()
                         cur = cls._parse_group(iterator)
+                        if len(cur.contents) == 1 and cur.contents[0].operator is None:
+                            cur = cur.contents[0]
                         cur.operator = cls._parse_operator(iterator)
                         out.contents.append(cur)
                     elif current.symbol == '[':
-                        ...
+                        iterator.rollback()
+                        cur = cls._parse_alter_set(iterator)
+                        if len(cur.contents) == 1 and cur.contents[0].operator is None:
+                            cur = cur.contents[0]
+                        cur.operator = cls._parse_operator(iterator)
+                        out.contents.append(cur)
                     elif current.symbol in ['|', ')']:
                         iterator.rollback()
                         break
@@ -291,8 +360,8 @@ class Parser:
         return out
 
     @classmethod
-    def _parse_group(cls, iterator: Iterator[tuple[int, Part]]) -> Alternative:
-        out = Alternative(operands=[], operator=None)
+    def _parse_group(cls, iterator: Lexer) -> Alternative:
+        out = Alternative(contents=[], operator=None)
         str_index, current = next(iterator)
         assert current.symbol == '(' and current.sym_type == PartType.TOKEN
         while True:
@@ -300,19 +369,14 @@ class Parser:
 
             if current.symbol == ')' and current.sym_type == PartType.TOKEN:
                 break
-            elif current.symbol == '|' and current.sym_type == PartType.TOKEN:
-                continue
-            else:
+
+            if current.symbol != '|' or current.sym_type != PartType.TOKEN:
                 iterator.rollback()
-                cur = cls._parse_concatenation(iterator)
-                out.operands.append(cur)
+
+            cur = cls._parse_concatenation(iterator)
+            if len(cur.contents) == 1:
+                out.contents.append(cur.contents[0])
+            else:
+                out.contents.append(cur)
 
         return out
-
-
-if __name__ == '__main__':
-    re = r"((1|2|3)(\+|-\s)?)+"
-    lex = Lexer(re)
-    pars = Parser(lex)
-    with open('out.json', 'w') as f:
-        f.write(repr(pars))
