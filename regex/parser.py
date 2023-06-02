@@ -1,7 +1,7 @@
 """Regular expressions parser"""
 
 from abc import ABC
-from typing import NamedTuple, Union, Any
+from typing import NamedTuple, Union
 from enum import Enum, auto
 from json import dumps
 
@@ -21,14 +21,11 @@ class Lexer:
 
     tokens: tuple[str] = '[', ']', '(', ')', '+', '*', '?', '{', '}', '|', '\\', '.'
     special: dict[str, str] = {'n': '\n', 't': '\t', '0': '\0', 'x': '\x00'}
-    substitute: tuple[str] = 's', 'S', 'd', 'D', 'a', 'A'
+    substitute: tuple[str] = 's', 'd', 'w', 'S', 'D', 'W'
 
     def __init__(self, regular_expression: str):
         self.regex = regular_expression
-        tokens = self._tokenize(regular_expression)
-        if not self._check_brackets(tokens):
-            raise Exception("Wrong brackets")
-        self.parts = tokens
+        self.parts = self._tokenize(regular_expression)
 
     def __len__(self):
         return len(self.parts)
@@ -48,11 +45,11 @@ class Lexer:
 
     def rollback(self) -> None:
         if self._cur_index == 0:
-            raise Exception  # TODO
+            raise IndexError("Attempted rollback at index 0.")
         self._cur_index -= 1
 
     @classmethod
-    def _check_brackets(cls, regex: tuple[Part]) -> bool:
+    def _check_brackets(cls, regex: list[Part]) -> bool:
         stack = []
         counterpart = {')': '(', ']': '['}
         for part in regex:
@@ -94,7 +91,7 @@ class Lexer:
 
             if current == '\\':
                 if i + 1 >= len(regular_expression):
-                    raise Exception  # TODO
+                    raise SyntaxError("Trailing '\\' symbol.")
 
                 if regular_expression[i + 1] in cls.special or regular_expression[i + 1] in cls.substitute:
                     new, j = cls._handle_escape(regular_expression[i:])
@@ -117,6 +114,8 @@ class Lexer:
             assert new is not None
             out.append(new)
 
+        if not cls._check_brackets(out):
+            raise SyntaxError("Unbalanced brackets.")
         return tuple([Part('(', PartType.TOKEN)] + out + [Part(')', PartType.TOKEN)])
 
 
@@ -138,7 +137,7 @@ class Operator:
 
 class BaseNode(ABC):
 
-    def repr(self) -> Any:  ...
+    def repr(self) -> dict:  ...
 
 
 class Symbol(BaseNode):
@@ -192,7 +191,9 @@ class Concatenation(BaseNode):
 
 
 class ParsingError(Exception):
-    pass
+
+    def __init__(self, msg: str, index: int | None = None):
+        super().__init__(f"({index}): " + msg if index is not None else msg)
 
 
 class Parser:
@@ -210,53 +211,42 @@ class Parser:
     def _parse(cls, lexer: Lexer) -> BaseNode:
         iter(lexer)
         out = cls._parse_group(lexer)
-        try:
-            next(lexer)
-        except StopIteration:
-            return out
-        else:
-            raise ParsingError  # TODO
+        assert lexer._cur_index == len(lexer)
+        return out
+
+    @classmethod
+    def _parse_number(cls, iterator: Lexer) -> int:
+        number_str = ''
+        while True:
+            str_index, current = next(iterator)
+            if current.symbol.isdigit():
+                number_str += current.symbol
+            else:
+                iterator.rollback()
+                break
+        return int(number_str)
 
     @classmethod
     def _parse_operator(cls, iterator: Lexer) -> Operator | None:
-        try:
-            str_index, current = next(iterator)
-        except StopIteration:
-            return None
+        str_index, current = next(iterator)
 
         if current.sym_type != PartType.TOKEN or current.symbol not in ['*', '+', '?', '{']:
             iterator.rollback()
             return None
 
         elif current.symbol == '{':
-            number_one_str = ''
-            while True:
-                str_index, current = next(iterator)
-                if current.symbol.isnumeric():
-                    number_one_str += current.symbol
-                elif current.symbol == ',':
-                    two_numbers = True
-                    break
-                elif current.symbol == '}':
-                    two_numbers = False
-                    break
-                else:
-                    raise ParsingError  # TODO
-            number_one = int(number_one_str)
-            if two_numbers:
-                number_two_str = ''
-                while True:
-                    str_index, current = next(iterator)
-                    if current.symbol.isnumeric():
-                        number_two_str += current.symbol
-                    elif current.symbol == '}':
-                        break
-                    else:
-                        raise ParsingError  # TODO
-                number_two = int(number_two_str)
+            number_one = cls._parse_number(iterator)
+            str_index, current = next(iterator)
+            if current.symbol == ',':
+                number_two = cls._parse_number(iterator)
+                if number_two < number_one:
+                    raise ValueError("The second number has to be grater than the first number.", str_index - 1)
                 range_tuple = (number_one, number_two)
+                str_index, current = next(iterator)
             else:
                 range_tuple = (number_one, number_one)
+            if current.symbol != '}' or current.sym_type != PartType.TOKEN:
+                raise ParsingError(f"Illegal symbol '{current.symbol}'.", str_index - 1)
             return Operator(OperatorType.EXACT, range_tuple)
 
         elif current.symbol == '?':
@@ -269,7 +259,7 @@ class Parser:
             return Operator(OperatorType.PLUS, '+')
 
         else:
-            raise Exception  # TODO
+            raise RuntimeError
 
     @classmethod
     def _parse_alter_set(cls, iterator: Lexer) -> Alternative:
@@ -279,39 +269,33 @@ class Parser:
         while True:
             str_index, current = next(iterator)
 
-            match current.sym_type:
-                case PartType.TOKEN:
-                    if current.symbol == ']':
-                        break
-                    else:
-                        raise ParsingError  # TODO
+            if current.sym_type == PartType.TOKEN:
+                if current.symbol == ']':
+                    break
+                else:
+                    raise ParsingError(f"'{current.symbol}' is not allowed inside '[]'.", str_index - 1)
 
-                case PartType.NORMAL:
-                    if current.symbol == '-' and len(out.contents) > 0:
-                        previous = out.contents[-1]
-                        _, following = next(iterator)
-                        if following.sym_type != PartType.NORMAL or isinstance(previous, SpecialSymbol):
-                            raise ParsingError
-                        assert isinstance(previous, Symbol)
+            elif current.sym_type == PartType.NORMAL:
+                if current.symbol == '-' and len(out.contents) > 0:
+                    previous = out.contents[-1]
+                    _, following = next(iterator)
+                    if following.sym_type != PartType.NORMAL or isinstance(previous, SpecialSymbol):
+                        raise ParsingError("Range has to be between two ASCII symbols.", str_index - 1)
+                    assert isinstance(previous, Symbol)
 
-                        first = ord(previous.symbol)
-                        second = ord(following.symbol)
-                        if first >= second:
-                            raise ParsingError
-                        for i in range(first + 1, second + 1):
-                            out.contents.append(Symbol(chr(i), None))
+                    first = ord(previous.symbol)
+                    second = ord(following.symbol)
+                    if first >= second:
+                        raise ValueError(f"The ASCII value of '{chr(first)}' should be "
+                                         f"lesser than the ASCII value of '{chr(second)}'", str_index - 1)
+                    for i in range(first + 1, second + 1):
+                        out.contents.append(Symbol(chr(i), None))
 
-                    else:
-                        out.contents.append(Symbol(current.symbol, None))
+                else:
+                    out.contents.append(Symbol(current.symbol, None))
 
-                case PartType.SPECIAL:
-                    out.contents.append(SpecialSymbol(current.symbol, None))
-
-                case PartType.TOKEN:
-                    if current.symbol == ']':
-                        break
-                    else:
-                        raise ParsingError
+            elif current.sym_type == PartType.SPECIAL:
+                out.contents.append(SpecialSymbol(current.symbol, None))
 
         return out
 
@@ -321,41 +305,43 @@ class Parser:
         while True:
             str_index, current = next(iterator)
 
-            match current.sym_type:
-                case PartType.TOKEN:
-                    if current.symbol == '(':
-                        iterator.rollback()
-                        cur = cls._parse_group(iterator)
-                        if len(cur.contents) == 1 and cur.contents[0].operator is None:
-                            cur = cur.contents[0]
-                        cur.operator = cls._parse_operator(iterator)
-                        out.contents.append(cur)
-                    elif current.symbol == '[':
-                        iterator.rollback()
-                        cur = cls._parse_alter_set(iterator)
-                        if len(cur.contents) == 1 and cur.contents[0].operator is None:
-                            cur = cur.contents[0]
-                        cur.operator = cls._parse_operator(iterator)
-                        out.contents.append(cur)
-                    elif current.symbol in ['|', ')']:
-                        iterator.rollback()
-                        break
-                    else:
-                        raise ParsingError  # TODO
+            if current.sym_type == PartType.TOKEN:
 
-                case PartType.NORMAL:
-                    cur = Symbol(
-                        symbol=current.symbol,
-                        operator=cls._parse_operator(iterator)
-                    )
+                if current.symbol == '(':
+                    iterator.rollback()
+                    cur = cls._parse_group(iterator)
+                    if len(cur.contents) == 1 and cur.contents[0].operator is None:
+                        cur = cur.contents[0]
+                    cur.operator = cls._parse_operator(iterator)
                     out.contents.append(cur)
+                elif current.symbol == '[':
+                    iterator.rollback()
+                    cur = cls._parse_alter_set(iterator)
+                    if len(cur.contents) == 1 and cur.contents[0].operator is None:
+                        cur = cur.contents[0]
+                    cur.operator = cls._parse_operator(iterator)
+                    out.contents.append(cur)
+                elif current.symbol in ['|', ')']:
+                    iterator.rollback()
+                    break
+                else:
+                    raise ParsingError(f"'{current.symbol}' is not allowed in this context.", str_index - 1)
 
-                case PartType.SPECIAL:
-                    cur = SpecialSymbol(
-                        symbol=current.symbol,
-                        operator=cls._parse_operator(iterator)
-                    )
-                    out.contents.append(cur)
+            elif current.sym_type == PartType.NORMAL:
+
+                cur = Symbol(
+                    symbol=current.symbol,
+                    operator=cls._parse_operator(iterator)
+                )
+                out.contents.append(cur)
+
+            elif current.sym_type == PartType.SPECIAL:
+
+                cur = SpecialSymbol(
+                    symbol=current.symbol,
+                    operator=cls._parse_operator(iterator)
+                )
+                out.contents.append(cur)
 
         return out
 
