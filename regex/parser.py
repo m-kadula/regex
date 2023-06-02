@@ -366,3 +366,7 @@ class Parser:
                 out.contents.append(cur)
 
         return out
+
+
+def parse(regex: str) -> Parser:
+    return Parser(Lexer(regex))
