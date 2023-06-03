@@ -1,20 +1,16 @@
 
 from typing import Self
+from parser import parse
 
 class eNFA:
 
-    def __init__(self,
-                 states: frozenset[int],
-                 alphabet: frozenset[str],
-                 d: dict[(int, str), frozenset[int]],
-                 start_state: int,
-                 end_states: frozenset[int],
-                 ):
-        self.states = states.copy()
-        self.alphabet = alphabet.copy()
-        self.d = d.copy()
-        self.start_state = start_state
-        self.end_states = end_states.copy()
+    def __init__(self):
+        self.states: set[int] = set()
+        self.transitions: dict[(int, str), set[int]] = dict()
+        self.start_state: int | None = None
+        self.end_state: int | None = None
+
+
 
 
 class NFA:
