@@ -147,18 +147,17 @@ class eNFA:
         else:
             end_state = build_type_func(node, start_state)
             if is_operator:
-                end_state = self._handle_operators(prev_start_state, start_state, end_state, node["operator"])
+                end_state = self._handle_operators(prev_start_state, start_state, end_state, node)
         return end_state
 
-    def _handle_operators(self, prev_start_state: int, start_state: int, end_state: int, symbol: str) -> int:
+    def _handle_operators(self, prev_start_state: int, start_state: int, end_state: int, node: dict) -> int:
         self._add_epsilon_transition(prev_start_state, start_state)
         new_end_state = self._create_state()
         self._add_epsilon_transition(end_state, new_end_state)
-
-        if symbol != (0, 1):
+        if node["operator"] != (0, 1):
             self._add_epsilon_transition(end_state, start_state)
 
-        if symbol == "*":
+        if node["operator"] == "*" or node["operator"] == (0, 1):
             self._add_epsilon_transition(prev_start_state, new_end_state)
         return new_end_state
 
