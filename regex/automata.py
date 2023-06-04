@@ -15,6 +15,7 @@ class eNFA:
         self.states.add(start_state)
         self.start_state = start_state
         self.end_state = self._build_enfa(parsed_regex.root.repr(), self.start_state)
+        self.states.add(self._build_enfa(parsed_regex.root.repr(), self.start_state))
 
     def _build_enfa(self, node: dict, start_state: int) -> int:
         is_operator = False
@@ -49,59 +50,6 @@ class eNFA:
         else:
             raise ValueError("Invalid node type: " + node["type"])
 
-    def _build_special_symbol_enfa(self, node: dict, start_state: int) -> int:
-        new_state = self._create_state()
-        symbol = node["value"]
-
-        if symbol == ".":
-            self._add_range_transitions(start_state, new_state, 0, 127)
-            self.transitions.pop((start_state, '\n'))
-
-        elif symbol == "d":
-            self._add_range_transitions(start_state, new_state, 48, 57)
-
-        elif symbol == "D":
-            self._add_range_transitions(start_state, new_state, 0, 128)
-            self._remove_range_transitions(start_state, 49, 57)
-
-        elif symbol == "w":
-            self._add_range_transitions(start_state, new_state, 65, 90)
-            self._add_range_transitions(start_state, new_state, 97, 122)
-            self._add_range_transitions(start_state, new_state, 48, 57)
-            self._add_symbol_transition(start_state, new_state, '_')
-
-        elif symbol == "W":
-            self._add_range_transitions(start_state, new_state, 0, 47)
-            self._add_range_transitions(start_state, new_state, 58, 64)
-            self._add_range_transitions(start_state, new_state, 91, 96)
-            self._add_range_transitions(start_state, new_state, 123, 128)
-            self.transitions.pop((start_state, '_'))
-
-        elif symbol == "s":
-            white_space_chars = [chr(32), chr(9), chr(11), chr(10), chr(13), chr(12)]
-            for ch in white_space_chars:
-                self._add_symbol_transition(start_state, new_state, ch)
-
-        elif symbol == "S":
-            white_space_chars = [chr(32), chr(9), chr(11), chr(10), chr(13), chr(12)]
-            for ch in map(chr, range(128)):
-                if ch not in white_space_chars:
-                    self._add_symbol_transition(start_state, new_state, ch)
-
-        else:
-            raise ValueError("Invalid value of special symbol: " + symbol)
-
-        return new_state
-
-    def _add_range_transitions(self, start_state: int, end_state: int, start: int, end: int) -> None:
-        for ch in map(chr, range(start, end + 1)):
-            self._add_symbol_transition(start_state, end_state, ch)
-
-    def _remove_range_transitions(self, start_state: int, start: int, end: int) -> None:
-        for ch in map(chr, range(start, end + 1)):
-            if (start_state, ch) in self.transitions:
-                self.transitions.pop((start_state, ch))
-
     def _build_concatenation_enfa(self, node: dict, start_state: int) -> int:
         prev_state = start_state
 
@@ -129,6 +77,56 @@ class eNFA:
         self._add_symbol_transition(start_state, new_state, node["value"])
         return new_state
 
+    def _build_special_symbol_enfa(self, node: dict, start_state: int) -> int:
+        new_state = self._create_state()
+        symbol = node["value"]
+
+        if symbol == ".":
+            self._add_ascii_range_transitions(start_state, new_state, 0, 127)
+            self.transitions.pop((start_state, '\n'))
+
+        elif symbol == "d":
+            self._add_ascii_range_transitions(start_state, new_state, 48, 57)
+
+        elif symbol == "D":
+            self._add_ascii_range_transitions(start_state, new_state, 0, 128)
+            self._remove_ascii_range_transitions(start_state, 49, 57)
+
+        elif symbol == "w":
+            self._add_epsilon_transition(start_state, new_state)
+            self._add_ascii_range_transitions(new_state, new_state, 65, 90)
+            self._add_ascii_range_transitions(new_state, new_state, 97, 122)
+            self._add_ascii_range_transitions(new_state, new_state, 48, 57)
+            self._add_symbol_transition(new_state, new_state, '_')
+            end_of_word_state = self._create_state()
+            self._add_epsilon_transition(new_state, end_of_word_state)
+
+        elif symbol == "W":
+            self._add_epsilon_transition(start_state, new_state)
+            self._add_ascii_range_transitions(new_state, new_state, 0, 47)
+            self._add_ascii_range_transitions(new_state, new_state, 58, 64)
+            self._add_ascii_range_transitions(new_state, new_state, 91, 96)
+            self._add_ascii_range_transitions(new_state, new_state, 123, 128)
+            self.transitions.pop(new_state, '_')
+            end_of_word_state = self._create_state()
+            self._add_epsilon_transition(new_state, end_of_word_state)
+
+        elif symbol == "s":
+            white_space_chars = [chr(32), chr(9), chr(11), chr(10), chr(13), chr(12)]
+            for ch in white_space_chars:
+                self._add_symbol_transition(start_state, new_state, ch)
+
+        elif symbol == "S":
+            white_space_chars = [chr(32), chr(9), chr(11), chr(10), chr(13), chr(12)]
+            for ch in map(chr, range(128)):
+                if ch not in white_space_chars:
+                    self._add_symbol_transition(start_state, new_state, ch)
+
+        else:
+            raise ValueError("Invalid value of special symbol: " + symbol)
+
+        return new_state
+
     def _handle_node_type(self, node: dict, start_state: int, prev_start_state: int, is_num_occurences: bool,
                           is_operator: bool, build_type_func) -> int:
 
@@ -154,10 +152,11 @@ class eNFA:
         self._add_epsilon_transition(prev_start_state, start_state)
         new_end_state = self._create_state()
         self._add_epsilon_transition(end_state, new_end_state)
-        if node["operator"] != (0, 1):
+
+        if node["operator"] != (0, 1):                                  # creates a loop in the automaton
             self._add_epsilon_transition(end_state, start_state)
 
-        if node["operator"] == "*" or node["operator"] == (0, 1):
+        if node["operator"] == "*" or node["operator"] == (0, 1):       # allows to skip the sub-automaton
             self._add_epsilon_transition(prev_start_state, new_end_state)
         return new_end_state
 
@@ -165,6 +164,15 @@ class eNFA:
         new_state = len(self.states)
         self.states.add(new_state)
         return new_state
+
+    def _add_ascii_range_transitions(self, start_state: int, end_state: int, start: int, end: int) -> None:
+        for ch in map(chr, range(start, end + 1)):
+            self._add_symbol_transition(start_state, end_state, ch)
+
+    def _remove_ascii_range_transitions(self, start_state: int, start: int, end: int) -> None:
+        for ch in map(chr, range(start, end + 1)):
+            if (start_state, ch) in self.transitions:
+                self.transitions.pop((start_state, ch))
 
     def _add_epsilon_transition(self, source_state: int, target_state: int) -> None:
         if (source_state, "") not in self.transitions:
