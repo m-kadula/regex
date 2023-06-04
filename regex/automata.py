@@ -126,36 +126,6 @@ class eNFA:
         self.transitions[(source_state, symbol)].add(target_state)
 
 
-# ----------
-# Tworzenie instancji klasy eNFA
-enfa = eNFA()
-
-# Testowanie wyrażenia regularnego
-regex = "\n"
-
-# Budowanie ENFA
-enfa.regex_to_enfa(regex)
-
-# Wyświetlanie stanów
-print("Stany:")
-print(enfa.states)
-
-# Wyświetlanie przejść
-print("Przejścia:")
-print(enfa.transitions)
-
-# Wyświetlanie stanu początkowego
-print("Stan początkowy:")
-print(enfa.start_state)
-
-# Wyświetlanie stanu końcowego
-print("Stan końcowy:")
-print(enfa.end_state)
-
-
-# ----------
-
-
 class NFA:
 
     def __init__(self,
