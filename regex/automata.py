@@ -15,8 +15,8 @@ class ENFA:
         self.end_state = end_state
 
     def __repr__(self):
-        return f"{self.__class__.__name__}\nstates = {self.states}\ntransitions={self.transitions}\n" \
-               f"start_state={self.start_state}\nend_state={self.end_state}"
+        return f"{self.__class__.__name__}\n({self.states},\n{self.transitions}," \
+               f"\n{self.start_state},\n{self.end_state})"
 
     @classmethod
     def get_enfa(cls, regex_input: str) -> Self:
@@ -193,8 +193,8 @@ class NFA:
         self.end_states = end_states.copy() if states is not None else set()
 
     def __repr__(self):
-        return f"{self.__class__.__name__}\nstates = {self.states}\ntransitions={self.transitions}\n" \
-               f"start_state={self.start_state}\nend_state={self.end_states}"
+        return f"{self.__class__.__name__}\n({self.states},\n{self.transitions}," \
+               f"\n{self.start_state},\n{self.end_states})"
 
     @classmethod
     def get_nfa(cls, enfa: ENFA) -> Self:
@@ -273,20 +273,14 @@ class NFA:
 
 class CompiledRegex:
 
-    def __init__(self,
-                 states: frozenset[int],
-                 alphabet: frozenset[str],
-                 d: dict[(int, str), int],
-                 start_state: int,
-                 end_states: frozenset[int],
-                 sinkhole_state: int | None = None
-                 ):
-        self.states = states.copy()
-        self.alphabet = alphabet.copy()
-        self.d = d.copy()
+    def __init__(self, states: set[int] = None,
+                 transitions: dict[(int, str), set[int]] = None,
+                 start_state: int | None = None,
+                 end_states: set[int] = None):
+        self.states = states.copy() if states is not None else set()
+        self.transitions = transitions.copy() if transitions is not None else dict()
         self.start_state = start_state
-        self.end_states = end_states.copy()
-        self.sinkhole_state = sinkhole_state
+        self.end_states = end_states.copy() if states is not None else set()
 
     @classmethod
     def get_dfa(cls, nfa: NFA) -> Self:

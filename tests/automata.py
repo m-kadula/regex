@@ -164,6 +164,7 @@ class ConversionTestENFA(ut.TestCase):
 
 
 class ConversionTestNFA(ut.TestCase):
+
     prt = False
 
     @classmethod
