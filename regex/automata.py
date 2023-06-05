@@ -270,6 +270,7 @@ class NFA:
             if k[0] not in unreachable_states
         }
 
+
 class CompiledRegex:
 
     def __init__(self,
