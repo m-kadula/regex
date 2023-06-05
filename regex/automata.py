@@ -199,15 +199,17 @@ class NFA:
     @classmethod
     def get_nfa(cls, enfa: ENFA) -> Self:
         nfa_instance = cls()
-        nfa_instance.states = enfa.states
+        nfa_instance.states = enfa.states.copy()
         nfa_instance.start_state = enfa.start_state
-        e_closures = nfa_instance._compute_e_closures(nfa_instance.states, enfa.transitions.copy())
+
+        e_closures = nfa_instance._compute_e_closures(nfa_instance.states, enfa.transitions)
         nfa_instance.end_states = nfa_instance._compute_end_states(nfa_instance.states, e_closures, enfa.end_state)
         nfa_instance.transitions = nfa_instance._compute_transitions(
             nfa_instance.states,
             e_closures,
             enfa.transitions
         )
+        nfa_instance._remove_unreachable_states()
         return nfa_instance
 
     @staticmethod
@@ -247,6 +249,26 @@ class NFA:
                     nfa_transitions[(state, symbol)] = set().union(*[e_closures[s] for s in next_states])
         return nfa_transitions
 
+    def _remove_unreachable_states(self):
+        reachable_states = set()
+        stack = [self.start_state]
+
+        while stack:
+            current_state = stack.pop()
+            reachable_states.add(current_state)
+
+            for symbol in set(k[1] for k in self.transitions.keys() if k[0] == current_state):
+                for next_state in self.transitions.get((current_state, symbol), set()):
+                    if next_state not in reachable_states:
+                        stack.append(next_state)
+
+        unreachable_states = self.states - reachable_states
+        self.states -= unreachable_states
+        self.end_states -= unreachable_states
+        self.transitions = {
+            k: v - unreachable_states for k, v in self.transitions.items()
+            if k[0] not in unreachable_states
+        }
 
 class CompiledRegex:
 
