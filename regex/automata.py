@@ -26,9 +26,9 @@ class eNFA:
         return enfa_instance
 
     def _build_enfa(self, node: dict, start_state: int) -> int:
-        is_operator = False                         # flag for handling '*', '?', '+'
-        is_range = False                            # flag for handling range - {x,y}
-        prev_start_state: int | None = None         # if '*', '?', '+' allows jump over sub-automaton
+        is_operator = False  # flag for handling '*', '?', '+'
+        is_range = False  # flag for handling range - {x,y}
+        prev_start_state: int | None = None  # if '*', '?', '+' allows jump over sub-automaton
 
         if node["operator"] is not None:
             if isinstance(node["operator"], tuple) and node["operator"] != (0, 1):
@@ -148,10 +148,10 @@ class eNFA:
         new_end_state = self._create_state()
         self._add_epsilon_transition(end_state, new_end_state)
 
-        if node["operator"] != (0, 1):                                  # creates a loop in the automaton
+        if node["operator"] != (0, 1):  # creates a loop in the automaton
             self._add_epsilon_transition(end_state, start_state)
 
-        if node["operator"] == "*" or node["operator"] == (0, 1):       # allows to skip the sub-automaton
+        if node["operator"] == "*" or node["operator"] == (0, 1):  # allows to skip the sub-automaton
             self._add_epsilon_transition(prev_start_state, new_end_state)
         return new_end_state
 
@@ -190,43 +190,60 @@ class NFA:
         self.start_state = start_state
         self.end_states = end_states.copy() if states is not None else set()
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}\nstates = {self.states}\ntransitions={self.transitions}\n" \
+               f"start_state={self.start_state}\nend_state={self.end_states}"
+
     @classmethod
     def get_NFA(cls, enfa: eNFA) -> Self:
         nfa_instance = cls()
         nfa_instance.states = enfa.states
         nfa_instance.start_state = enfa.start_state
-
-        e_closures = nfa_instance.compute_e_closures(nfa_instance.states, enfa.transitions.copy())
-        print(e_closures)
+        e_closures = nfa_instance._compute_e_closures(nfa_instance.states, enfa.transitions.copy())
+        nfa_instance.end_states = nfa_instance._compute_end_states(nfa_instance.states, e_closures, enfa.end_state)
+        nfa_instance.transitions = nfa_instance._compute_transitions(
+            nfa_instance.states,
+            e_closures,
+            enfa.transitions
+        )
         return nfa_instance
 
     @staticmethod
-    def compute_e_closures(states: set[int], transitions: dict[(int, str), set[int]]) -> dict[int, set[int]]:
+    def _compute_e_closures(states: set[int], transitions: dict[(int, str), set[int]]) -> dict[int, set[int]]:
         e_closures: dict[int, set[int]] = {}
 
-        def compute_closure(current_state: int) -> set[int]:
-            nonlocal e_closures
+        for current_state in states:
             if current_state not in e_closures:
-
-                closure = set(transitions.get((current_state, ''), set()))
-                states_to_add = set(closure)
-
-                for next_state in closure:
-                    if next_state not in e_closures:
-                        states_to_add.update(compute_closure(next_state))
-                    else:
-                        states_to_add.update(e_closures[next_state])
-                states_to_add.add(current_state)
-                e_closures[current_state] = states_to_add
-            return e_closures[current_state]
-
-        for state in states:
-            compute_closure(state)
+                closure = set()
+                stack = [current_state]
+                while stack:
+                    state = stack.pop()
+                    if state not in closure:
+                        closure.add(state)
+                        stack.extend(transitions.get((state, ''), set()))
+                e_closures[current_state] = closure
         return e_closures
 
-print(eNFA.get_enfa("a|b*").transitions)
-NFA.get_NFA(eNFA.get_enfa("a|b*"))
+    @staticmethod
+    def _compute_end_states(states: set[int], e_closures: dict[int, set[int]], end_state: int) -> set[int]:
+        end_states = set()
+        for state in states:
+            if end_state in e_closures[state]:
+                end_states.add(state)
+        return end_states
 
+    @staticmethod
+    def _compute_transitions(states: set[int], e_closures: dict[int, set[int]],
+                            transitions: dict[(int, str), set[int]]) -> dict[(int, str), set[int]]:
+        nfa_transitions = {}
+        for state in states:
+            for symbol in set(k[1] for k in transitions.keys()):
+                next_states = set()
+                for current_state in e_closures[state]:
+                    next_states.update(transitions.get((current_state, symbol), set()))
+                if next_states:
+                    nfa_transitions[(state, symbol)] = set().union(*[e_closures[s] for s in next_states])
+        return nfa_transitions
 
 
 class CompiledRegex:
