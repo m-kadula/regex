@@ -15,8 +15,8 @@ class ENFA:
         self.end_state = end_state
 
     def __repr__(self):
-        return f"{self.__class__.__name__}\n({self.states},\n{self.transitions}," \
-               f"\n{self.start_state},\n{self.end_state})"
+        return f"{self.__class__.__name__}(\nstates={self.states},\ntransitions={self.transitions}," \
+               f"\nstart_state={self.start_state},\nend_state={self.end_state})"
 
     @classmethod
     def get_enfa(cls, regex_input: str) -> Self:
@@ -193,8 +193,8 @@ class NFA:
         self.end_states = end_states.copy() if states is not None else set()
 
     def __repr__(self):
-        return f"{self.__class__.__name__}\n({self.states},\n{self.transitions}," \
-               f"\n{self.start_state},\n{self.end_states})"
+        return f"{self.__class__.__name__}(\nstates={self.states},\ntransitions={self.transitions}," \
+               f"\nstart_state={self.start_state},\nend_states={self.end_states})"
 
     @classmethod
     def get_nfa(cls, enfa: ENFA) -> Self:
