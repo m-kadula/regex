@@ -239,7 +239,7 @@ class NFA:
                              transitions: dict[(int, str), set[int]]) -> dict[(int, str), set[int]]:
         nfa_transitions = {}
         for state in states:
-            for symbol in set(k[1] for k in transitions.keys()):
+            for symbol in set(k[1] for k in transitions.keys() if k[1] != ""):
                 next_states = set()
                 for current_state in e_closures[state]:
                     next_states.update(transitions.get((current_state, symbol), set()))
