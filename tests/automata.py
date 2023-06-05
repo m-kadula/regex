@@ -1,14 +1,16 @@
+"""tests for automata"""
+
 import unittest as ut
 import regex.automata as aut
 
 
-class eNFA_Conversion_Test(ut.TestCase):
+class ConversionTestENFA(ut.TestCase):
 
     prt = False
 
     @classmethod
     def _convert(cls, re: str):
-        enfa = aut.eNFA.regex_to_enfa(re)
+        enfa = aut.ENFA.get_enfa(re)
         if cls.prt:
             with open('out.txt', 'a') as f:
                 f.seek(0, 2)
@@ -160,3 +162,55 @@ class eNFA_Conversion_Test(ut.TestCase):
              (2, '}'): {3}, (2, '~'): {3}, (2, '\x7f'): {3}, (2, '\x80'): {3}, (3, ''): {1}}
         )
 
+
+class ConversionTestNFA(ut.TestCase):
+    prt = False
+
+    @classmethod
+    def _convert(cls, re: str):
+        enfa = aut.ENFA.get_enfa(re)
+        nfa = aut.NFA.get_nfa(enfa)
+        if cls.prt:
+            with open('out.txt', 'a') as f:
+                f.seek(0, 2)
+                print(enfa, nfa, file=f, flush=True)
+        return nfa.transitions, nfa.end_states
+
+    def test_basic(self):
+        self.assertTupleEqual(
+            self._convert("a"),
+            (
+                {
+                    (0, 'a'): {1, 3}
+                },
+                {1, 3}
+            )
+        )
+        self.assertTupleEqual(
+            self._convert("ab"),
+            (
+                {
+
+                    (0, 'a'): {3}, (3, 'b'): {1, 4}
+                },
+                {1, 4}
+            )
+        )
+        self.assertTupleEqual(
+            self._convert("a*"),
+            (
+                {
+                    (0, 'a'): {1, 3, 4, 5}, (3, 'a'): {1, 3, 4, 5}, (4, 'a'): {1, 3, 4, 5}
+                },
+                {0, 1, 4, 5}
+            )
+        )
+        self.assertTupleEqual(
+            self._convert("a|b"),
+            (
+                {
+                    (0, 'a'): {1, 3}, (0, 'b'): {1, 5}
+                },
+                {1, 3, 5}
+            )
+        )
