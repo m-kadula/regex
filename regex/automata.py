@@ -1,5 +1,5 @@
 from typing import Self
-from parser import parse
+from regex.parser import parse
 
 
 class eNFA:
@@ -11,6 +11,10 @@ class eNFA:
         self.transitions = transitions.copy() if transitions is not None else dict()
         self.start_state = start_state
         self.end_state = end_state
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}\nstates = {self.states}\ntransitions={self.transitions}\n" \
+               f"start_state={self.start_state}\nend_state={self.end_state}"
 
     @classmethod
     def regex_to_enfa(cls, regex_input: str) -> 'eNFA':
@@ -87,28 +91,20 @@ class eNFA:
 
         elif symbol == "D":
             self._add_ascii_range_transitions(start_state, next_state, 0, 128)
-            self._remove_ascii_range_transitions(start_state, 49, 57)
+            self._remove_ascii_range_transitions(start_state, 48, 57)
 
         elif symbol == "w":
-            self._add_epsilon_transition(start_state, next_state)
-            self._add_ascii_range_transitions(next_state, next_state, 65, 90)
-            self._add_ascii_range_transitions(next_state, next_state, 97, 122)
-            self._add_ascii_range_transitions(next_state, next_state, 48, 57)
-            self._add_symbol_transition(next_state, next_state, '_')
-            end_of_word_state = self._create_state()                        # guesses the end of the word
-            self._add_epsilon_transition(next_state, end_of_word_state)
-            next_state = end_of_word_state
+            self._add_ascii_range_transitions(start_state, next_state, 65, 90)
+            self._add_ascii_range_transitions(start_state, next_state, 97, 122)
+            self._add_ascii_range_transitions(start_state, next_state, 48, 57)
+            self._add_symbol_transition(start_state, next_state, '_')
 
         elif symbol == "W":
-            self._add_epsilon_transition(start_state, next_state)
-            self._add_ascii_range_transitions(next_state, next_state, 0, 47)
-            self._add_ascii_range_transitions(next_state, next_state, 58, 64)
-            self._add_ascii_range_transitions(next_state, next_state, 91, 96)
-            self._add_ascii_range_transitions(next_state, next_state, 123, 128)
-            self.transitions.pop(next_state, '_')
-            end_of_word_state = self._create_state()
-            self._add_epsilon_transition(next_state, end_of_word_state)
-            next_state = end_of_word_state
+            self._add_ascii_range_transitions(start_state, next_state, 0, 47)
+            self._add_ascii_range_transitions(start_state, next_state, 58, 64)
+            self._add_ascii_range_transitions(start_state, next_state, 91, 96)
+            self._add_ascii_range_transitions(start_state, next_state, 123, 128)
+            self.transitions.pop(start_state, '_')
 
         elif symbol == "s":
             white_space_chars = [chr(32), chr(9), chr(11), chr(10), chr(13), chr(12)]
