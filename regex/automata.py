@@ -17,7 +17,7 @@ class eNFA:
                f"start_state={self.start_state}\nend_state={self.end_state}"
 
     @classmethod
-    def regex_to_enfa(cls, regex_input: str) -> 'eNFA':
+    def get_enfa(cls, regex_input: str) -> Self:
         parsed_regex = parse(regex_input)
         enfa_instance = cls()
         enfa_instance.start_state = enfa_instance._create_state()
@@ -181,22 +181,52 @@ class eNFA:
 
 
 class NFA:
-    def __init__(self,
-                 states: frozenset[int],
-                 alphabet: frozenset[str],
-                 d: dict[(int, str), frozenset[int]],
-                 start_state: int,
-                 end_states: frozenset[int],
-                 ):
-        self.states = states.copy()
-        self.alphabet = alphabet.copy()
-        self.d = d.copy()
+    def __init__(self, states: set[int] = None,
+                 transitions: dict[(int, str), set[int]] = None,
+                 start_state: int | None = None,
+                 end_states: set[int] = None):
+        self.states = states.copy() if states is not None else set()
+        self.transitions = transitions.copy() if transitions is not None else dict()
         self.start_state = start_state
-        self.end_states = end_states.copy()
+        self.end_states = end_states.copy() if states is not None else set()
 
     @classmethod
-    def eNFA_to_NFA(cls, enfa: eNFA) -> Self:
-        ...
+    def get_NFA(cls, enfa: eNFA) -> Self:
+        nfa_instance = cls()
+        nfa_instance.states = enfa.states
+        nfa_instance.start_state = enfa.start_state
+
+        e_closures = nfa_instance.compute_e_closures(nfa_instance.states, enfa.transitions.copy())
+        print(e_closures)
+        return nfa_instance
+
+    @staticmethod
+    def compute_e_closures(states: set[int], transitions: dict[(int, str), set[int]]) -> dict[int, set[int]]:
+        e_closures: dict[int, set[int]] = {}
+
+        def compute_closure(current_state: int) -> set[int]:
+            nonlocal e_closures
+            if current_state not in e_closures:
+
+                closure = set(transitions.get((current_state, ''), set()))
+                states_to_add = set(closure)
+
+                for next_state in closure:
+                    if next_state not in e_closures:
+                        states_to_add.update(compute_closure(next_state))
+                    else:
+                        states_to_add.update(e_closures[next_state])
+                states_to_add.add(current_state)
+                e_closures[current_state] = states_to_add
+            return e_closures[current_state]
+
+        for state in states:
+            compute_closure(state)
+        return e_closures
+
+print(eNFA.get_enfa("a|b*").transitions)
+NFA.get_NFA(eNFA.get_enfa("a|b*"))
+
 
 
 class CompiledRegex:
