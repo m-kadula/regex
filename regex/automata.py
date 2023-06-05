@@ -1,8 +1,10 @@
+"""Automata for representing regular expressions"""
+
 from typing import Self
 from regex.parser import parse
 
 
-class eNFA:
+class ENFA:
     def __init__(self, states: set[int] = None,
                  transitions: dict[(int, str), set[int]] = None,
                  start_state: int | None = None,
@@ -195,7 +197,7 @@ class NFA:
                f"start_state={self.start_state}\nend_state={self.end_states}"
 
     @classmethod
-    def get_NFA(cls, enfa: eNFA) -> Self:
+    def get_nfa(cls, enfa: ENFA) -> Self:
         nfa_instance = cls()
         nfa_instance.states = enfa.states
         nfa_instance.start_state = enfa.start_state
@@ -234,7 +236,7 @@ class NFA:
 
     @staticmethod
     def _compute_transitions(states: set[int], e_closures: dict[int, set[int]],
-                            transitions: dict[(int, str), set[int]]) -> dict[(int, str), set[int]]:
+                             transitions: dict[(int, str), set[int]]) -> dict[(int, str), set[int]]:
         nfa_transitions = {}
         for state in states:
             for symbol in set(k[1] for k in transitions.keys()):
@@ -264,7 +266,7 @@ class CompiledRegex:
         self.sinkhole_state = sinkhole_state
 
     @classmethod
-    def NFA_to_DFA(cls, nfa: NFA) -> Self:
+    def get_dfa(cls, nfa: NFA) -> Self:
         ...
 
     def minimalize(self) -> Self:
