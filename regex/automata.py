@@ -5,7 +5,6 @@ from pickle import dumps, loads
 from regex.parser import parse
 
 
-
 class ENFA:
     def __init__(self, states: set[int] = None,
                  transitions: dict[(int, str), set[int]] = None,
@@ -56,7 +55,7 @@ class ENFA:
                                           is_operator, self._build_concatenation_enfa)
 
         elif node["type"] == "special_symbol":
-            return self._handle_node_type(node["value"], start_state, prev_start_state, is_range, is_operator,
+            return self._handle_node_type(node, start_state, prev_start_state, is_range, is_operator,
                                           self._build_special_symbol_enfa)
 
         else:
@@ -83,8 +82,9 @@ class ENFA:
         self._add_symbol_transition(start_state, next_state, node["value"])
         return next_state
 
-    def _build_special_symbol_enfa(self, symbol: str, start_state: int) -> int:
+    def _build_special_symbol_enfa(self, node: dict, start_state: int) -> int:
         next_state = self._create_state()
+        symbol = node["value"]
 
         if symbol == ".":
             self._add_ascii_range_transitions(start_state, next_state, 0, 127)
