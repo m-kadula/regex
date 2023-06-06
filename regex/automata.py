@@ -1,7 +1,9 @@
 """Automata for representing regular expressions"""
 
 from typing import Self
+from pickle import dumps, loads
 from regex.parser import parse
+
 
 
 class ENFA:
@@ -288,17 +290,43 @@ class DFA:
                  alphabet: frozenset[str] = None,
                  transitions: dict[(int, str), int] = None,
                  start_state: int = None,
-                 end_states: frozenset[int] = None):
+                 end_states: frozenset[int] = None,
+                 sink_state: int | None = None):
         self.states = states if states is not None else frozenset()
         self.alphabet = alphabet if alphabet is not None else frozenset()
         self.transitions = transitions.copy() if transitions is not None else dict()
         self.start_state = start_state
         self.end_states = end_states if states is not None else frozenset()
+        self.sink_state = sink_state
 
     def __repr__(self):
         return f"{self.__class__.__name__}(\n    states={self.states},\n    alphabet={self.alphabet},\n    " \
                f"transitions={self.transitions},\n    start_state={self.start_state},\n    " \
-               f"end_states={self.end_states}\n)"
+               f"end_states={self.end_states}\n    sink_state={self.sink_state}\n)"
+
+    def serialize(self) -> bytes:
+        return dumps(self)
+
+    @classmethod
+    def unpack(cls, contents: bytes) -> Self:
+        return loads(contents)
+
+    def match_all(self, text: str) -> bool:
+        current_state = self.start_state
+        for letter in text:
+            if letter not in self.alphabet:
+                return False
+            current_state = self.transitions[(current_state, letter)]
+            if current_state == self.sink_state:
+                return False
+        return current_state in self.end_states
+
+    def detect_sinkhole(self) -> bool:
+        for state in self.states.difference(self.end_states):
+            if all(self.transitions[(state, letter)] == state for letter in self.alphabet):
+                self.sink_state = state
+                return True
+        return False
 
     @classmethod
     def get_dfa(cls, nfa: NFA) -> Self:
@@ -360,6 +388,8 @@ class DFA:
                 continue
             nonempty.add(a)
             b = not_checked[a].pop()
+            if a not in not_checked[b]:
+                continue
             not_checked[a].add(b)
 
             if self._is_in_relation(abstract_classes, a, b):
