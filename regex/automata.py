@@ -311,16 +311,6 @@ class DFA:
     def unpack(cls, contents: bytes) -> Self:
         return loads(contents)
 
-    def match_all(self, text: str) -> bool:
-        current_state = self.start_state
-        for letter in text:
-            if letter not in self.alphabet:
-                return False
-            current_state = self.transitions[(current_state, letter)]
-            if current_state == self.sink_state:
-                return False
-        return current_state in self.end_states
-
     def detect_sinkhole(self) -> bool:
         for state in self.states.difference(self.end_states):
             if all(self.transitions[(state, letter)] == state for letter in self.alphabet):
