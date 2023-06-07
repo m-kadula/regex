@@ -387,16 +387,12 @@ class DFA:
                 new_unchecked = not_checked[a].intersection(not_checked[b])
 
                 for item in new_relation:
-                    in_relation[item] = new_relation.copy()
-                    not_checked[item] = new_unchecked.copy()
+                    in_relation[item] = new_relation
+                    not_checked[item] = new_unchecked
 
             else:
-                new_unchecked = not_checked[a].difference({b})
-                for item in in_relation[a]:
-                    not_checked[item] = new_unchecked.copy()
-                new_unchecked = not_checked[b].difference({a})
-                for item in in_relation[b]:
-                    not_checked[item] = new_unchecked.copy()
+                not_checked[a].discard(b)
+                not_checked[b].discard(a)
 
         return frozenset(frozenset(s) for s in in_relation.values())
 
