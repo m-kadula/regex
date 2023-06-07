@@ -1,6 +1,7 @@
 """Automata for representing regular expressions"""
 
 from typing import Self
+from pickle import dumps, loads
 from regex.parser import parse
 
 
@@ -15,8 +16,8 @@ class ENFA:
         self.end_state = end_state
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(\nstates={self.states},\ntransitions={self.transitions}," \
-               f"\nstart_state={self.start_state},\nend_state={self.end_state})"
+        return f"{self.__class__.__name__}(\n    states={self.states},\n    transitions={self.transitions}," \
+               f"\n    start_state={self.start_state},\n    end_state={self.end_state}\n)"
 
     @classmethod
     def get_enfa(cls, regex_input: str) -> Self:
@@ -54,7 +55,7 @@ class ENFA:
                                           is_operator, self._build_concatenation_enfa)
 
         elif node["type"] == "special_symbol":
-            return self._handle_node_type(node["value"], start_state, prev_start_state, is_range, is_operator,
+            return self._handle_node_type(node, start_state, prev_start_state, is_range, is_operator,
                                           self._build_special_symbol_enfa)
 
         else:
@@ -81,8 +82,9 @@ class ENFA:
         self._add_symbol_transition(start_state, next_state, node["value"])
         return next_state
 
-    def _build_special_symbol_enfa(self, symbol: str, start_state: int) -> int:
+    def _build_special_symbol_enfa(self, node: dict, start_state: int) -> int:
         next_state = self._create_state()
+        symbol = node["value"]
 
         if symbol == ".":
             self._add_ascii_range_transitions(start_state, next_state, 0, 127)
@@ -193,8 +195,19 @@ class NFA:
         self.end_states = end_states.copy() if states is not None else set()
 
     def __repr__(self):
-        return f"{self.__class__.__name__}(\nstates={self.states},\ntransitions={self.transitions}," \
-               f"\nstart_state={self.start_state},\nend_states={self.end_states})"
+        return f"{self.__class__.__name__}(\n    states={self.states},\n    transitions={self.transitions}," \
+               f"\n    start_state={self.start_state},\n    end_states={self.end_states}\n)"
+
+    def get_alphabet(self) -> frozenset[str]:
+        return frozenset(letter for _, letter in self.transitions.keys())
+
+    def transition(self, states: frozenset[int], letter: str) -> frozenset[int]:
+        out = set()
+        for state in states:
+            if (state, letter) not in self.transitions:
+                continue
+            out.update(self.transitions[(state, letter)])
+        return frozenset(out)
 
     @classmethod
     def get_nfa(cls, enfa: ENFA) -> Self:
@@ -271,20 +284,149 @@ class NFA:
         }
 
 
-class CompiledRegex:
+class DFA:
 
-    def __init__(self, states: set[int] = None,
-                 transitions: dict[(int, str), set[int]] = None,
-                 start_state: int | None = None,
-                 end_states: set[int] = None):
-        self.states = states.copy() if states is not None else set()
+    def __init__(self, states: frozenset[int] = None,
+                 alphabet: frozenset[str] = None,
+                 transitions: dict[(int, str), int] = None,
+                 start_state: int = None,
+                 end_states: frozenset[int] = None,
+                 sink_state: int | None = None):
+        self.states = states if states is not None else frozenset()
+        self.alphabet = alphabet if alphabet is not None else frozenset()
         self.transitions = transitions.copy() if transitions is not None else dict()
         self.start_state = start_state
-        self.end_states = end_states.copy() if states is not None else set()
+        self.end_states = end_states if states is not None else frozenset()
+        self.sink_state = sink_state
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}(\n    states={self.states},\n    alphabet={self.alphabet},\n    " \
+               f"transitions={self.transitions},\n    start_state={self.start_state},\n    " \
+               f"end_states={self.end_states}\n    sink_state={self.sink_state}\n)"
+
+    def serialize(self) -> bytes:
+        return dumps(self)
+
+    @classmethod
+    def unpack(cls, contents: bytes) -> Self:
+        return loads(contents)
+
+    def detect_sinkhole(self) -> bool:
+        for state in self.states.difference(self.end_states):
+            if all(self.transitions[(state, letter)] == state for letter in self.alphabet):
+                self.sink_state = state
+                return True
+        return False
 
     @classmethod
     def get_dfa(cls, nfa: NFA) -> Self:
-        ...
+        alphabet = nfa.get_alphabet()
+        transitions: dict[(frozenset[int], str), frozenset[int]] = dict()
+
+        upcoming_states: set[frozenset[int]] = {frozenset([nfa.start_state])}
+        determined_states: dict[frozenset[int], int] = dict()
+
+        state_index = 0
+
+        while len(upcoming_states) > 0:
+            current_state = upcoming_states.pop()
+            determined_states[current_state] = state_index
+            state_index += 1
+
+            for letter in alphabet:
+                after_transition = nfa.transition(current_state, letter)
+                transitions[(current_state, letter)] = after_transition
+                if after_transition not in determined_states:
+                    upcoming_states.add(after_transition)
+
+        transitions_integers: dict[(int, str), int] = dict()
+        end_states: set[int] = set()
+
+        for state in determined_states:
+            if nfa.end_states.intersection(state) != set():
+                end_states.add(determined_states[state])
+            for letter in alphabet:
+                transitions_integers[(determined_states[state], letter)] = \
+                    determined_states[transitions[(state, letter)]]
+
+        assert determined_states[frozenset([nfa.start_state])] == 0
+        return cls(
+            states=frozenset(range(state_index)),
+            alphabet=alphabet,
+            transitions=transitions_integers,
+            start_state=0,
+            end_states=frozenset(end_states)
+        )
+
+    def _is_in_relation(self, abstract_classes: frozenset[frozenset[int]], a: int, b: int) -> bool:
+        for letter in self.alphabet:
+            subset = {self.transitions[(a, letter)], self.transitions[(b, letter)]}
+            if not any(subset.issubset(i) for i in abstract_classes):
+                return False
+        return True
+
+    def _relax_relations(self,
+                         relation: frozenset[int],
+                         abstract_classes: frozenset[frozenset[int]]) -> frozenset[frozenset[int]]:
+        in_relation: dict[int, set[int]] = {i: {i} for i in relation}
+        not_checked: dict[int, set[int]] = {i: set(relation.difference({i})) for i in relation}
+        nonempty = set(relation)
+
+        while len(nonempty) > 0:
+            a = nonempty.pop()
+            if len(not_checked[a]) == 0:
+                continue
+            nonempty.add(a)
+            b = not_checked[a].pop()
+            if a not in not_checked[b]:
+                continue
+            not_checked[a].add(b)
+
+            if self._is_in_relation(abstract_classes, a, b):
+                new_relation = in_relation[a].union(in_relation[b])
+                new_unchecked = not_checked[a].intersection(not_checked[b])
+
+                for item in new_relation:
+                    in_relation[item] = new_relation
+                    not_checked[item] = new_unchecked
+
+            else:
+                not_checked[a].discard(b)
+                not_checked[b].discard(a)
+
+        return frozenset(frozenset(s) for s in in_relation.values())
 
     def minimalize(self) -> Self:
-        ...
+        abstract_classes = frozenset({self.states.difference(self.end_states), self.end_states})
+        while True:
+            upcoming = set()
+            for element in abstract_classes:
+                upcoming.update(self._relax_relations(element, abstract_classes))
+            if abstract_classes == frozenset(upcoming):
+                break
+            else:
+                abstract_classes = frozenset(upcoming)
+
+        enumerated: dict[int, int] = dict()
+        for i, s in enumerate(abstract_classes):
+            for element in s:
+                enumerated[element] = i
+        states: set[int] = set()
+        transitions: dict[(int, str), int] = dict()
+        end_states: set[int] = set()
+        start_state = enumerated[self.start_state]
+
+        for s in enumerated:
+            states.add(enumerated[s])
+            if s in self.end_states:
+                end_states.add(enumerated[s])
+            for letter in self.alphabet:
+                transitions[(enumerated[s], letter)] = enumerated[self.transitions[(s, letter)]]
+
+        return self.__class__(
+            states=frozenset(states),
+            alphabet=self.alphabet,
+            transitions=transitions,
+            start_state=start_state,
+            end_states=frozenset(end_states)
+        )
