@@ -4,6 +4,7 @@ from typing import Self
 from pickle import dumps, loads
 from regex.parser import parse
 from typing import Optional
+import numpy as np
 
 
 class ENFA:
@@ -238,18 +239,26 @@ class NFA:
 
     @staticmethod
     def _compute_e_closures(states: set[int], transitions: dict[(int, str), set[int]]) -> dict[int, set[int]]:
-        e_closures: dict[int, set[int]] = {}
+        transitions = {k: v for k, v in transitions.items() if k[1] == ""}
+        size = len(states)
+        adjacency_matrix = np.full((size, size), False, dtype=bool)
+        state_to_index = {state: index for index, state in enumerate(sorted(states))}
 
-        for current_state in states:
-            if current_state not in e_closures:
-                closure = set()
-                stack = [current_state]
-                while stack:
-                    state = stack.pop()
-                    if state not in closure:
-                        closure.add(state)
-                        stack.extend(transitions.get((state, ''), set()))
-                e_closures[current_state] = closure
+        np.fill_diagonal(adjacency_matrix, True)
+
+        for (u, _), vs in transitions.items():
+            for v in vs:
+                adjacency_matrix[state_to_index[u]][state_to_index[v]] = True
+
+        for k in range(size):
+            for i in range(size):
+                for j in range(size):
+                    adjacency_matrix[i][j] = adjacency_matrix[i][j] or (
+                                adjacency_matrix[i][k] and adjacency_matrix[k][j])
+
+        e_closures = {}
+        for state, index in state_to_index.items():
+            e_closures[state] = set(sorted(states)[i] for i in np.flatnonzero(adjacency_matrix[index]))
         return e_closures
 
     @staticmethod
