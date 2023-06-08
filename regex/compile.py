@@ -1,5 +1,5 @@
 
-from typing import Self
+from typing import Self, Union
 from pickle import dumps, loads
 from regex.automata import ENFA, NFA, DFA
 
@@ -9,18 +9,26 @@ class Match:
     def __init__(self, text: str, span: tuple[int, int], __reg: 'CompiledRegex' = None):
         self.text = text
         self.span = span
-        self.reg = __reg
+        self._reg = __reg
 
     def __repr__(self):
-        return f"<Match: {repr(self.get_match)}, span: {self.span}>"
+        return f"<Match: {repr(self.get_str)}, span: {self.span}>"
 
     @property
-    def regex(self):
-        return self.reg
+    def begin(self) -> int:
+        return self.span[0]
 
     @property
-    def get_match(self) -> str:
-        return self.text[self.span[0]:self.span[1]]
+    def end(self) -> int:
+        return self.span[1]
+
+    @property
+    def regex(self) -> Union['CompiledRegex', None]:
+        return self._reg
+
+    @property
+    def get_str(self) -> str:
+        return self.text[self.begin:self.end]
 
 
 class CompiledRegex:
