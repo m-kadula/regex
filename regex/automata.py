@@ -3,6 +3,7 @@
 from typing import Self
 from pickle import dumps, loads
 from regex.parser import parse
+from typing import Optional
 
 
 class ENFA:
@@ -72,18 +73,28 @@ class ENFA:
         end_state = self._create_state()
 
         for sub_node in node["contents"]:
+            if sub_node["operator"] is None:
+                if sub_node["type"] == "special_symbol":
+                    self._build_special_symbol_enfa(sub_node, start_state, end_state)
+                    continue
+                if sub_node["type"] == "symbol":
+                    self._build_symbol_enfa(sub_node, start_state, end_state)
+                    continue
+
             sub_start_state = self._create_state()
             self._add_epsilon_transition(start_state, sub_start_state)
             self._add_epsilon_transition(self._build_enfa(sub_node, sub_start_state), end_state)
         return end_state
 
-    def _build_symbol_enfa(self, node: dict, start_state: int) -> int:
-        next_state = self._create_state()
+    def _build_symbol_enfa(self, node: dict, start_state: int, next_state: Optional[int] = None) -> int:
+        if next_state is None:
+            next_state = self._create_state()
         self._add_symbol_transition(start_state, next_state, node["value"])
         return next_state
 
-    def _build_special_symbol_enfa(self, node: dict, start_state: int) -> int:
-        next_state = self._create_state()
+    def _build_special_symbol_enfa(self, node: dict, start_state: int, next_state: Optional[int] = None) -> int:
+        if next_state is None:
+            next_state = self._create_state()
         symbol = node["value"]
 
         if symbol == ".":
