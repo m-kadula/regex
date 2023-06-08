@@ -1,10 +1,10 @@
-# **Biblioteka do wyszukiwania wyrażeń reguralnych**
+# **Biblioteka do wyszukiwania wyrażeń regularnych**
 
 Program udostępnia zbiór narzędzi do wyszukiwania 
-wzorca zapisanego w postaci wyrażenia reguralnego.
+wzorca zapisanego w postaci wyrażenia regularnego.
 
 ## Składnia języka
-Jedynymi dozwolonymi elementami wyrażenia reguralnego są symbole ASCII
+Jedynymi dozwolonymi elementami wyrażenia regularnego są symbole ASCII
 ### Podstawy
 - W celu połączenia dwóch wyrażeń w jedno zapisujemy je obok siebie (np. `AB`
 akceptuje wyrażenie `A` po którym następuje `B`) 
@@ -45,7 +45,7 @@ Następnie zainicjalizować klasę podając za argument wyrażenie regularne.
 Metody tej klasy zapewniają narzędzia do wyszukiwania instancji w tekście:
 - `full_match(str)` spawdza czy `str` jest akceptowany przez wyrażenie
 - `match_all(str)` wyszukuje wszystkie wystapienia słów należących do języka 
-wyrażenia reguralnego w `str`
+wyrażenia regularnego w `str`
 ```python
 from regex.compile import CompiledRegex
 
