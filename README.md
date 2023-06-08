@@ -47,10 +47,10 @@ Metody tej klasy zapewniają narzędzia do wyszukiwania instancji w tekście:
 - `match_all(str)` wyszukuje wszystkie wystapienia słów należących do języka 
 wyrażenia reguralnego w `str`
 ```python
-from regex.compiled import CompiledRegex
+from regex.compile import CompiledRegex
 
 # Kompilowanie wyrażenia rozpoznającego adres e-mail
-foo = CompiledRegex(r"([a-z0-9_\.]+)@([-\da-z\.]+)\.([a-z\.]{2,6})\s*")
+foo = CompiledRegex(r"([a-z0-9_\.]+)@([-\da-z\.]+)\.([a-z\.]{2,6})")
 foo.full_match("abc@gmail.com")  # returns <Match: 'abc@gmail.com', span: (0, 13)>
 foo.full_match("abcgmail.com")   # returns None
 
