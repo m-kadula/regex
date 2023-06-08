@@ -1,21 +1,22 @@
 
-from typing import Self, Iterator
+from typing import Self
 from pickle import dumps, loads
 from regex.automata import ENFA, NFA, DFA
 
 
 class Match:
 
-    def __init__(self, text: str, span: tuple[int, int], __reg=None):
+    def __init__(self, text: str, span: tuple[int, int], __reg: 'CompiledRegex' = None):
         self.text = text
         self.span = span
-        self._reg = __reg
+        self.reg = __reg
 
     def __repr__(self):
-        if self._reg is not None:
-            return f"<Match {repr(self.get_match)} for regex {repr(self._reg.regex)}>"
-        else:
-            return f"<Match {repr(self.get_match)}, span={self.span}>"
+        return f"<Match: {repr(self.get_match)}, span: {self.span}>"
+
+    @property
+    def regex(self):
+        return self.reg
 
     @property
     def get_match(self) -> str:
@@ -36,15 +37,18 @@ class CompiledRegex:
     def __repr__(self):
         return f"compile.CompiledRegex({repr(self.regex)})"
 
-    def full_match(self, text: str) -> bool:
+    def full_match(self, text: str) -> Match | None:
         current_state = self.dfa.start_state
         for letter in text:
             if letter not in self.dfa.alphabet:
-                return False
+                return None
             current_state = self.dfa.transitions[(current_state, letter)]
             if current_state == self.dfa.sink_state:
-                return False
-        return current_state in self.dfa.end_states
+                return None
+        if current_state in self.dfa.end_states:
+            return Match(text, (0, len(text)), self)
+        else:
+            return None
 
     def match_all(self, text: str) -> list[Match]:
         automatons: list[(int, int, int)] = []
@@ -70,7 +74,7 @@ class CompiledRegex:
 
             automatons = next_automatons.copy()
 
-        return [Match(text, (start, stop + 1)) for start, stop, _ in automatons]
+        return [Match(text, (start, stop + 1), self) for start, stop, _ in automatons if stop != -1]
 
     def pack(self) -> bytes:
         return dumps(self)
