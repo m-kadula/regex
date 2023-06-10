@@ -2,7 +2,7 @@
 
 from typing import Self, Union, Any
 from pickle import dumps, loads
-from regex.automata import ENFA, NFA, DFA
+from .automata import ENFA, NFA, DFA
 
 
 class Match:
