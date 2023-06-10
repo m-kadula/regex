@@ -1,4 +1,4 @@
-"""Tests for regex/compile.py"""
+"""Tests for regex/test_compile.py"""
 
 import unittest as ut
 from regex.compile import CompiledRegex, Match

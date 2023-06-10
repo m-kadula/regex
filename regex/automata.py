@@ -2,7 +2,7 @@
 
 from typing import Self
 from pickle import dumps, loads
-from regex.parser import parse
+from .parser import parse
 from typing import Optional
 import numpy as np
 

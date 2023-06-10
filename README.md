@@ -44,8 +44,15 @@ z pliku `compile.py` za pomocą ```from regex.compiled import CompiledRegex```.
 Następnie zainicjalizować klasę podając za argument wyrażenie regularne.
 Metody tej klasy zapewniają narzędzia do wyszukiwania instancji w tekście:
 - `full_match(str)` spawdza czy `str` jest akceptowany przez wyrażenie
-- `match_all(str)` wyszukuje wszystkie wystapienia słów należących do języka 
+- `find_all(str)` wyszukuje wszystkie wystapienia słów należących do języka 
 wyrażenia regularnego w `str`
+-  `match(str)` zwraca początek `str` pasujący do wyrażenia reguralnego, w 
+przeciwnym razie zwraca None
+- `search(str)` zwraca pierwsze słowo należące do języka wyrażenia reguralnego
+w tekście
+- `pack()` zwraca skompilowaną wersje regex'a która może zostać zapisana
+do pliku
+- `unpack()` pozwala wczytać skompilowaną wersje regex'a
 ```python
 from regex.compile import CompiledRegex
 
@@ -55,5 +62,6 @@ foo.full_match("abc@gmail.com")  # returns <Match: 'abc@gmail.com', span: (0, 13
 foo.full_match("abcgmail.com")   # returns None
 
 txt = "abc@gmail.com, abcgmail.com"
-foo.match_all(txt)  # returns [<Match: 'abc@gmail.com', span: (0, 13)>]
+foo.find_all(txt)  # returns [<Match: 'abc@gmail.com', span: (0, 13)>]
+foo.search("abc@gmail.com, abcgmail.com") # returns <Match: 'abc@gmail.com', span: (0, 13)>
 ```
