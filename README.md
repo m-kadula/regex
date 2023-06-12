@@ -40,7 +40,7 @@ lub innym znakiem o szczególnym znaczeniu, niweluje jego specjalne zadanie
 
 ## Obsługa paczki
 W celu użycia biblioteki w programie należy zaimportować klasę `CompiledRegex`
-z pliku `compile.py` za pomocą ```from regex.compiled import CompiledRegex```.
+z pliku `compile.py` za pomocą ```from regex.compile import CompiledRegex```.
 Następnie zainicjalizować klasę podając za argument wyrażenie regularne.
 Metody tej klasy zapewniają narzędzia do wyszukiwania instancji w tekście:
 - `full_match(str)` spawdza czy `str` jest akceptowany przez wyrażenie
