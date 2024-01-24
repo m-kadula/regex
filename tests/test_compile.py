@@ -42,6 +42,18 @@ class CompileTest(ut.TestCase):
             reg.match(text),
             Match(text, (0, 0))
         )
+        reg = CompiledRegex(r"a[]a")
+        text = "aa aaa aaaa"
+        self.assertEqual(
+            reg.match(text),
+            None
+        )
+        reg = CompiledRegex(r"a()a")
+        text = "aa aaa aaaa"
+        self.assertEqual(
+            reg.match(text),
+            None
+        )
 
     def test_find_iter(self):
         reg = CompiledRegex(r"a+b+")

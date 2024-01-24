@@ -6,15 +6,9 @@ import regex.automata as aut
 
 class ConversionTestENFA(ut.TestCase):
 
-    prt = False
-
     @classmethod
     def _convert(cls, re: str):
         enfa = aut.ENFA.get_enfa(re)
-        if cls.prt:
-            with open('out.txt', 'a') as f:
-                f.seek(0, 2)
-                print(enfa, file=f, flush=True)
         return enfa.transitions
 
     def test_operator(self):
@@ -161,16 +155,10 @@ class ConversionTestENFA(ut.TestCase):
 
 class ConversionTestNFA(ut.TestCase):
 
-    prt = False
-
     @classmethod
     def _convert(cls, re: str):
         enfa = aut.ENFA.get_enfa(re)
         nfa = aut.NFA.get_nfa(enfa)
-        if cls.prt:
-            with open('out.txt', 'a') as f:
-                f.seek(0, 2)
-                print(enfa, nfa, file=f, flush=True)
         return nfa.transitions, nfa.end_states
 
     def test_basic(self):
