@@ -199,3 +199,7 @@ class ConversionTestNFA(ut.TestCase):
                 {1}
             )
         )
+
+
+if __name__ == '__main__':
+    ut.main()

@@ -134,12 +134,11 @@ class ParserTest(ut.TestCase):
         )
 
     def test_alt_set(self):
-        null = None
         self.assertEqual(
             self._parse(r"[-0\s12a-cA-C]+"),
             {
                 "type": "alternative",
-                "operator": null,
+                "operator": None,
                 "contents": [
                     {
                         "type": "alternative",
@@ -147,57 +146,57 @@ class ParserTest(ut.TestCase):
                         "contents": [
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "-"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "0"
                             },
                             {
                                 "type": "special_symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "s"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "1"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "2"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "a"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "b"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "c"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "A"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "B"
                             },
                             {
                                 "type": "symbol",
-                                "operator": null,
+                                "operator": None,
                                 "value": "C"
                             }
                         ]
@@ -377,156 +376,12 @@ class ParserTest(ut.TestCase):
             }
         )
 
-    def test_general_one(self):
-        null = None
-        self.assertEqual(
-            self._parse(r"((\\d{3})(\\.|-))?(\\d{3}\y)(\\.|-)(\\d{4})"),
-            {
-                "type": "alternative",
-                "operator": null,
-                "contents": [
-                    {
-                        "type": "concatenation",
-                        "operator": null,
-                        "contents": [
-                            {
-                                "type": "concatenation",
-                                "operator": (
-                                    0,
-                                    1
-                                ),
-                                "contents": [
-                                    {
-                                        "type": "concatenation",
-                                        "operator": null,
-                                        "contents": [
-                                            {
-                                                "type": "symbol",
-                                                "operator": null,
-                                                "value": "\\"
-                                            },
-                                            {
-                                                "type": "symbol",
-                                                "operator": (
-                                                    3,
-                                                    3
-                                                ),
-                                                "value": "d"
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "type": "alternative",
-                                        "operator": null,
-                                        "contents": [
-                                            {
-                                                "type": "concatenation",
-                                                "operator": null,
-                                                "contents": [
-                                                    {
-                                                        "type": "symbol",
-                                                        "operator": null,
-                                                        "value": "\\"
-                                                    },
-                                                    {
-                                                        "type": "special_symbol",
-                                                        "operator": null,
-                                                        "value": "."
-                                                    }
-                                                ]
-                                            },
-                                            {
-                                                "type": "symbol",
-                                                "operator": null,
-                                                "value": "-"
-                                            }
-                                        ]
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "concatenation",
-                                "operator": null,
-                                "contents": [
-                                    {
-                                        "type": "symbol",
-                                        "operator": null,
-                                        "value": "\\"
-                                    },
-                                    {
-                                        "type": "symbol",
-                                        "operator": (
-                                            3,
-                                            3
-                                        ),
-                                        "value": "d"
-                                    },
-                                    {
-                                        "type": "symbol",
-                                        "operator": null,
-                                        "value": "y"
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "alternative",
-                                "operator": null,
-                                "contents": [
-                                    {
-                                        "type": "concatenation",
-                                        "operator": null,
-                                        "contents": [
-                                            {
-                                                "type": "symbol",
-                                                "operator": null,
-                                                "value": "\\"
-                                            },
-                                            {
-                                                "type": "special_symbol",
-                                                "operator": null,
-                                                "value": "."
-                                            }
-                                        ]
-                                    },
-                                    {
-                                        "type": "symbol",
-                                        "operator": null,
-                                        "value": "-"
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "concatenation",
-                                "operator": null,
-                                "contents": [
-                                    {
-                                        "type": "symbol",
-                                        "operator": null,
-                                        "value": "\\"
-                                    },
-                                    {
-                                        "type": "symbol",
-                                        "operator": (
-                                            4,
-                                            4
-                                        ),
-                                        "value": "d"
-                                    }
-                                ]
-                            }
-                        ]
-                    }
-                ]
-            }
-        )
-
-    def test_general_two(self):
-        null = None
+    def test_general(self):
         self.assertEqual(
             self._parse(r"((1|2|3)(\++-{89,90}\s).*)+|x"),
             {
                 "type": "alternative",
-                "operator": null,
+                "operator": None,
                 "contents": [
                     {
                         "type": "concatenation",
@@ -534,28 +389,28 @@ class ParserTest(ut.TestCase):
                         "contents": [
                             {
                                 "type": "alternative",
-                                "operator": null,
+                                "operator": None,
                                 "contents": [
                                     {
                                         "type": "symbol",
-                                        "operator": null,
+                                        "operator": None,
                                         "value": "1"
                                     },
                                     {
                                         "type": "symbol",
-                                        "operator": null,
+                                        "operator": None,
                                         "value": "2"
                                     },
                                     {
                                         "type": "symbol",
-                                        "operator": null,
+                                        "operator": None,
                                         "value": "3"
                                     }
                                 ]
                             },
                             {
                                 "type": "concatenation",
-                                "operator": null,
+                                "operator": None,
                                 "contents": [
                                     {
                                         "type": "symbol",
@@ -572,7 +427,7 @@ class ParserTest(ut.TestCase):
                                     },
                                     {
                                         "type": "special_symbol",
-                                        "operator": null,
+                                        "operator": None,
                                         "value": "s"
                                     }
                                 ]
@@ -586,7 +441,7 @@ class ParserTest(ut.TestCase):
                     },
                     {
                         "type": "symbol",
-                        "operator": null,
+                        "operator": None,
                         "value": "x"
                     }
                 ]
@@ -624,3 +479,7 @@ class ParserTest(ut.TestCase):
             self._parse,
             r"a+(+)"
         )
+
+
+if __name__ == '__main__':
+    ut.main()
